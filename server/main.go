@@ -44,6 +44,110 @@ func square(pos string) (int, int, bool) {
 	return rank, file, true
 }
 
+func color(piece rune) int {
+	if piece >= 'A' && piece <= 'Z' {
+		return 1 // white
+	}
+	if piece >= 'a' && piece <= 'z' {
+		return -1 // black
+	}
+	return 0
+}
+
+func sign(x int) int {
+	switch {
+	case x > 0:
+		return 1
+	case x < 0:
+		return -1
+	}
+	return 0
+}
+
+func (b *Board) clearPath(fr, fc, tr, tc int) bool {
+	dr := sign(tr - fr)
+	dc := sign(tc - fc)
+	r, c := fr+dr, fc+dc
+	for r != tr || c != tc {
+		if b.grid[r][c] != '.' {
+			return false
+		}
+		r += dr
+		c += dc
+	}
+	return true
+}
+
+func (b *Board) validMove(fr, fc, tr, tc int, piece rune) bool {
+	if fr == tr && fc == tc {
+		return false
+	}
+	dest := b.grid[tr][tc]
+	if dest != '.' && color(dest) == color(piece) {
+		return false
+	}
+
+	dr := tr - fr
+	dc := tc - fc
+
+	switch piece {
+	case 'P':
+		if dr == -1 && dc == 0 && dest == '.' {
+			return true
+		}
+		if fr == 6 && dr == -2 && dc == 0 && dest == '.' && b.grid[fr-1][fc] == '.' {
+			return true
+		}
+		if dr == -1 && (dc == -1 || dc == 1) && dest != '.' && color(dest) == -1 {
+			return true
+		}
+	case 'p':
+		if dr == 1 && dc == 0 && dest == '.' {
+			return true
+		}
+		if fr == 1 && dr == 2 && dc == 0 && dest == '.' && b.grid[fr+1][fc] == '.' {
+			return true
+		}
+		if dr == 1 && (dc == -1 || dc == 1) && dest != '.' && color(dest) == 1 {
+			return true
+		}
+	case 'R', 'r':
+		if dr == 0 || dc == 0 {
+			if b.clearPath(fr, fc, tr, tc) {
+				return true
+			}
+		}
+	case 'B', 'b':
+		if abs(dr) == abs(dc) {
+			if b.clearPath(fr, fc, tr, tc) {
+				return true
+			}
+		}
+	case 'Q', 'q':
+		if dr == 0 || dc == 0 || abs(dr) == abs(dc) {
+			if b.clearPath(fr, fc, tr, tc) {
+				return true
+			}
+		}
+	case 'N', 'n':
+		if (abs(dr) == 2 && abs(dc) == 1) || (abs(dr) == 1 && abs(dc) == 2) {
+			return true
+		}
+	case 'K', 'k':
+		if abs(dr) <= 1 && abs(dc) <= 1 {
+			return true
+		}
+	}
+	return false
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
+}
+
 func (b *Board) Move(from, to string) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
@@ -54,6 +158,9 @@ func (b *Board) Move(from, to string) bool {
 	}
 	piece := b.grid[fr][fc]
 	if piece == '.' {
+		return false
+	}
+	if !b.validMove(fr, fc, tr, tc, piece) {
 		return false
 	}
 	b.grid[tr][tc] = piece
