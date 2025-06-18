@@ -9,10 +9,11 @@ import (
 type Board struct {
 	mu   sync.Mutex
 	grid [8][8]rune
+	turn int
 }
 
 func NewBoard() *Board {
-	b := &Board{}
+	b := &Board{turn: 1}
 	setup := []string{
 		"rnbqkbnr",
 		"pppppppp",
@@ -160,11 +161,15 @@ func (b *Board) Move(from, to string) bool {
 	if piece == '.' {
 		return false
 	}
+	if color(piece) != b.turn {
+		return false
+	}
 	if !b.validMove(fr, fc, tr, tc, piece) {
 		return false
 	}
 	b.grid[tr][tc] = piece
 	b.grid[fr][fc] = '.'
+	b.turn = -b.turn
 	return true
 }
 
