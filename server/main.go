@@ -69,8 +69,10 @@ func sign(x int) int {
 func (b *Board) Reset() {
 	nb := NewBoard()
 	b.mu.Lock()
-	defer b.mu.Unlock()
-	*b = *nb
+	b.grid = nb.grid
+	b.turn = nb.turn
+	b.gameOver = nb.gameOver
+	b.mu.Unlock()
 }
 
 func (b *Board) clearPath(fr, fc, tr, tc int) bool {
