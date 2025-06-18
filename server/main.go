@@ -7,13 +7,14 @@ import (
 )
 
 type Board struct {
-	mu   sync.Mutex
-	grid [8][8]rune
-	turn int
+	mu       sync.Mutex
+	grid     [8][8]rune
+	turn     int
+	gameOver bool
 }
 
 func NewBoard() *Board {
-	b := &Board{turn: 1}
+	b := &Board{turn: 1, gameOver: false}
 	setup := []string{
 		"rnbqkbnr",
 		"pppppppp",
@@ -63,6 +64,13 @@ func sign(x int) int {
 		return -1
 	}
 	return 0
+}
+
+func (b *Board) Reset() {
+	nb := NewBoard()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	*b = *nb
 }
 
 func (b *Board) clearPath(fr, fc, tr, tc int) bool {
@@ -152,6 +160,9 @@ func abs(x int) int {
 func (b *Board) Move(from, to string) bool {
 	b.mu.Lock()
 	defer b.mu.Unlock()
+	if b.gameOver {
+		return false
+	}
 	fr, fc, ok1 := square(from)
 	tr, tc, ok2 := square(to)
 	if !ok1 || !ok2 {
@@ -167,13 +178,23 @@ func (b *Board) Move(from, to string) bool {
 	if !b.validMove(fr, fc, tr, tc, piece) {
 		return false
 	}
+	dest := b.grid[tr][tc]
 	b.grid[tr][tc] = piece
 	b.grid[fr][fc] = '.'
-	b.turn = -b.turn
+	if dest == 'k' || dest == 'K' {
+		b.gameOver = true
+	} else {
+		b.turn = -b.turn
+	}
 	return true
 }
 
-func (b *Board) State() []string {
+type State struct {
+	Board    []string `json:"board"`
+	GameOver bool     `json:"gameOver"`
+}
+
+func (b *Board) State() State {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	rows := make([]string, 8)
@@ -184,7 +205,7 @@ func (b *Board) State() []string {
 		}
 		rows[i] = string(row)
 	}
-	return rows
+	return State{Board: rows, GameOver: b.gameOver}
 }
 
 func main() {
@@ -211,9 +232,22 @@ func main() {
 			return
 		}
 		if board.Move(req.From, req.To) {
-			json.NewEncoder(w).Encode(map[string]string{"status": "ok"})
+			json.NewEncoder(w).Encode(map[string]interface{}{"status": "ok", "gameOver": board.gameOver})
 		} else {
-			json.NewEncoder(w).Encode(map[string]string{"status": "invalid"})
+			json.NewEncoder(w).Encode(map[string]interface{}{"status": "invalid", "gameOver": board.gameOver})
+		}
+	})
+
+	http.HandleFunc("/newgame", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		if r.Method == http.MethodOptions {
+			w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+			w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+			return
+		}
+		if r.Method == http.MethodPost {
+			board.Reset()
+			json.NewEncoder(w).Encode(board.State())
 		}
 	})
 
