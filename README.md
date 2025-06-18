@@ -26,3 +26,17 @@ The frontend is a very small React app in the `client` directory. Open `index.ht
 
 No build step is required because React is loaded from a CDN.
 
+### Running the frontend with Bun
+
+The `client` folder now contains a `package.json` with a small dev script that
+uses `bunx serve` to host the static files. After installing [Bun](https://bun.sh),
+start the React app with:
+
+```bash
+cd client
+bun install
+bun run dev
+```
+
+This serves `index.html` on <http://localhost:3000>.
+
