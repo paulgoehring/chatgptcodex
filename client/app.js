@@ -2,6 +2,7 @@ const e = React.createElement;
 
 function Board() {
   const [board, setBoard] = React.useState([]);
+  const [gameOver, setGameOver] = React.useState(false);
   const [dragFrom, setDragFrom] = React.useState(null);
 
   const pieceIcons = {
@@ -19,10 +20,28 @@ function Board() {
     p: "\u265F",
   };
 
+  const pieceClass = (p) =>
+    p >= "A" && p <= "Z" ? "white-piece" : "black-piece";
+
+  const newGame = () => {
+    fetch("http://localhost:8080/newgame", { method: "POST" }).then(fetchBoard);
+  };
+
   const fetchBoard = () => {
     fetch("http://localhost:8080/board")
       .then((res) => res.json())
-      .then(setBoard);
+      .then((data) => {
+        setBoard(data.board);
+        if (data.gameOver && !gameOver) {
+          if (confirm("Game over. Start new game?")) {
+            newGame();
+          } else {
+            setGameOver(true);
+          }
+        } else {
+          setGameOver(data.gameOver);
+        }
+      });
   };
 
   React.useEffect(fetchBoard, []);
@@ -40,7 +59,18 @@ function Board() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ from, to }),
-    }).then(fetchBoard);
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        fetchBoard();
+        if (data.gameOver && !gameOver) {
+          if (confirm("Game over. Start new game?")) {
+            newGame();
+          } else {
+            setGameOver(true);
+          }
+        }
+      });
     setDragFrom(null);
   };
 
@@ -65,6 +95,7 @@ function Board() {
                 "span",
                 {
                   draggable: true,
+                  className: pieceClass(cell),
                   onDragStart: onDragStart(r, c),
                 },
                 pieceIcons[cell] || cell,
